@@ -1,0 +1,306 @@
+local Players=game:GetService("Players")
+local RunService=game:GetService("RunService")
+local StarterGui=game:GetService("StarterGui")
+local CoreGui=game:GetService("CoreGui")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("ReplicatedStorage")
+local Tween=game:GetService("TweenService")
+local Lighting=game:GetService("Lighting")
+local LP=Players.LocalPlayer
+local Cam=workspace.CurrentCamera
+local GP=Players.GetPlayers
+local W2V=Cam.WorldToViewportPoint
+local RC=workspace.Raycast
+local New=Instance.new
+local floor=math.floor
+local clamp=math.clamp
+local abs=math.abs
+local function Notify(t,x,d)pcall(function()StarterGui:SetCore("SendNotification",{Title=t,Text=x,Duration=d or 2})end)end
+local function rnd()return tostring(math.random(100000,900000))end
+local S={Aim=false,Smooth=0.18,FOV=90,FOVCircle=false,Silent=false,SilentMode="Hook",SilentSmooth=0.35,Trig=false,TrigD=0.12,AI=true,Pred=0.12,VisCheck=true,MaxDist=500,AutoShoot=false,AutoShootDelay=0.08,Skel=true,Trace=false,Chams=true,Info=true,Team=true,ESPDist=false,ESPBox=false,ESPWallCheck="None",Hitbox=false,HBV=2,Spd=false,SpdV=28,Jmp=false,JmpV=80,Fly=false,FlyV=50,Noclip=false,InfJ=false,AB_Kick=false,AB_TP=false,AB_Char=false,AB_Remote=false,AB_Move=false,AntiAC=true,Fullbright=false,LightOpt=false,ESPHealthBar=false,ESPNameTag=false,ESPHealthText=false,ESPThreatLevel=false,ESPRainbow=false,ESPDistanceFade=true,ESPTeamColor=true,AimPriority="Distance",AimWallBang=false,AimSmoothing="Linear",PredictionType="Velocity",InstantSnap=false,PlayerHUD=false,NearestPlayerHUD=false,TargetIndicator=false,TracerToTarget=false,AntiFling=false,HitNotify=false,NoKillFlash=false,RenderThrottle=1,Whitelist={}}
+task.wait(math.random(3,8)/10)
+pcall(function()for _,v in CoreGui:GetChildren()do if v.Name:match("^F%d")or v.Name:match("^G%d")or v.Name:match("^K")then v:Destroy()end end end)
+local C={BgDeep=Color3.fromRGB(10,8,16),BgMain=Color3.fromRGB(18,14,26),BgCard=Color3.fromRGB(26,20,38),BgInput=Color3.fromRGB(34,26,48),Accent=Color3.fromRGB(160,80,255),Accent2=Color3.fromRGB(230,80,200),Accent3=Color3.fromRGB(100,140,255),Text=Color3.fromRGB(240,235,250),TextDim=Color3.fromRGB(150,140,175),Danger=Color3.fromRGB(255,90,110),Off=Color3.fromRGB(44,36,60),Stroke=Color3.fromRGB(70,50,110),TeamGreen=Color3.fromRGB(80,200,120)}
+local Folder=New("Folder",CoreGui)
+Folder.Name="F"..rnd()
+local B15={{"Head","UpperTorso"},{"UpperTorso","LowerTorso"},{"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},{"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},{"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},{"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"}}
+local B6={{"Head","Torso"},{"Torso","Left Arm"},{"Torso","Right Arm"},{"Torso","Left Leg"},{"Torso","Right Leg"}}
+local Pool={active={},free={}}
+local function ALine()local l=table.remove(Pool.free)if l then l.Visible=true Pool.active[l]=true return l end l=Drawing.new("Line")l.Color=Color3.new(1,1,1)l.Thickness=1.6 l.Visible=true Pool.active[l]=true return l end
+local function RLine(l)if not Pool.active[l]then return end Pool.active[l]=nil l.Visible=false table.insert(Pool.free,l)end
+local Data,HitboxData={},{}
+local VC=setmetatable({},{__mode="k"})
+local FlyBV,FlyBG,NoclipConn,InfJConn
+local FlyMode=nil,LastShot=0,LastAuto=0
+local SilentTarget=nil,Target=nil,FrameSkip=0
+local VPC=Vector2.new(Cam.ViewportSize.X/2,Cam.ViewportSize.Y/2)
+local RP=RaycastParams.new()
+RP.FilterType=Enum.RaycastFilterType.Exclude
+RP.IgnoreWater=true
+local VF={Cam}
+local FOVCircleObj=nil
+local function UpdateFOVCircle()if S.FOVCircle then if not FOVCircleObj then FOVCircleObj=Drawing.new("Circle")FOVCircleObj.NumSides=60 FOVCircleObj.Thickness=1.5 FOVCircleObj.Filled=false FOVCircleObj.Transparency=0.7 FOVCircleObj.Color=C.Accent end FOVCircleObj.Position=VPC FOVCircleObj.Radius=S.FOV FOVCircleObj.Visible=true elseif FOVCircleObj then FOVCircleObj.Visible=false end end
+Cam:GetPropertyChangedSignal("ViewportSize"):Connect(function()VPC=Vector2.new(Cam.ViewportSize.X/2,Cam.ViewportSize.Y/2)if FOVCircleObj then FOVCircleObj.Position=VPC end end)
+local function IsLobby()local pg=LP:FindFirstChild("PlayerGui")if not pg then return false end for _,g in pg:GetChildren()do if g:IsA("ScreenGui")and g.Enabled then local n=g.Name:lower()if n:find("lobby")or n:find("mainmenu")then return true end end end return false end
+if S.AntiAC then task.spawn(function()local tags={"anticheat","ac","detection","ban","kick","security","moderation"}local function check(o)if not o:IsA("LocalScript")then return end local n=o.Name:lower()for i=1,#tags do if n:find(tags[i],1,true)then pcall(function()o.Disabled=true end)return end end end for _,o in game:GetDescendants()do check(o)end game.DescendantAdded:Connect(check)if hookfunction and newcclosure and getgc then pcall(function()local gc=getgc(false)for i=1,#gc do local fn=gc[i]if type(fn)~="function"then continue end local ok,ct=pcall(debug.getconstants,fn)if ok and ct then for j=1,#ct do local c=ct[j]if type(c)=="string"and(c:find("TakeTheL")or c:find("RemoteKick")or c:find("BanAsync"))then pcall(function()hookfunction(fn,function()end)end)break end end end end end)end end)end
+local OrigNC,UnifiedHook,IndexOrig,IndexHook
+local AB={active=false,conns={},orig={},hookedRemotes={}}
+local function SetupUnifiedHook()if not getrawmetatable or not setreadonly or not newcclosure then return end pcall(function()local mt=getrawmetatable(game)if not mt then return end OrigNC=mt.__namecall UnifiedHook=newcclosure(function(self,...)local method=getnamecallmethod and getnamecallmethod()or""if checkcaller and checkcaller()then return OrigNC(self,...)end if self==LP and AB.active then local ml=method:lower()if ml=="kick"or ml=="destroy"or ml:find("kick",1,true)then return nil end end if SilentTarget and S.Silent and S.SilentMode=="Hook"then if method=="FindPartOnRay"or method=="Raycast"then local args={...}local tp=SilentTarget.Position args[1]=Ray.new(Cam.CFrame.Position,(tp-Cam.CFrame.Position).Unit*1000)return OrigNC(self,table.unpack(args))end end return OrigNC(self,...)end)setreadonly(mt,false)mt.__namecall=UnifiedHook setreadonly(mt,true)IndexOrig=mt.__index IndexHook=newcclosure(function(self,key)if SilentTarget and S.Silent and S.SilentMode=="Hook"and not(checkcaller and checkcaller())then if self==Cam or self==workspace then if key=="Hit"then return CFrame.new(SilentTarget.Position)end if key=="Target"then return SilentTarget end end end return IndexOrig(self,key)end)setreadonly(mt,false)mt.__index=IndexHook setreadonly(mt,true)end)end
+SetupUnifiedHook()
+local function MakeESP(p)if p==LP then return end local pn=p.Name if Data[pn]then return end if S.Team and p.Team and LP.Team and p.Team==LP.Team then return end local c=p.Character if not c then return end local h=c:FindFirstChildOfClass("Humanoid")local r=c:FindFirstChild("HumanoidRootPart")if not h or h.Health<=0 or not r then return end local isTeam=p.Team and LP.Team and p.Team==LP.Team local bones=c:FindFirstChild("UpperTorso")and B15 or B6 local n=#bones local lines,pairs={},{}for i=1,n do lines[i]=ALine()pairs[i]={c:FindFirstChild(bones[i][1]),c:FindFirstChild(bones[i][2])}end local tl=ALine()local hl=New("Highlight",Folder)hl.Adornee=c hl.FillColor=isTeam and C.TeamGreen or C.Accent hl.OutlineColor=Color3.new(1,1,1)hl.FillTransparency=0.7 hl.OutlineTransparency=0.15 hl.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop hl.Enabled=S.Chams local bb=New("BillboardGui",Folder)bb.Adornee=r bb.Size=UDim2.new(0,140,0,32)bb.StudsOffset=Vector3.new(0,3,0)bb.AlwaysOnTop=true bb.MaxDistance=2000 local nl=New("TextLabel",bb)nl.Size=UDim2.new(1,0,0,16)nl.BackgroundTransparency=1 nl.Text=pn nl.TextColor3=isTeam and Color3.fromRGB(80,220,140)or Color3.new(1,1,1)nl.TextStrokeTransparency=0.3 nl.Font=Enum.Font.GothamBold nl.TextSize=12 nl.Visible=S.Info local dl=New("TextLabel",bb)dl.Size=UDim2.new(1,0,0,14)dl.Position=UDim2.new(0,0,0,16)dl.BackgroundTransparency=1 dl.Text="0m"dl.TextColor3=Color3.fromRGB(200,200,200)dl.TextStrokeTransparency=0.3 dl.Font=Enum.Font.Gotham dl.TextSize=11 dl.Visible=S.Info or S.ESPDist local bx=nil if S.ESPBox then bx=Drawing.new("Square")bx.Thickness=1.5 bx.Filled=false bx.Transparency=1 bx.Color=isTeam and C.TeamGreen or C.Accent bx.Visible=false end Data[pn]={C=c,L=lines,BP=pairs,T=tl,H=hl,BB=bb,NL=nl,DL=dl,R=r,lD=-1,SC={},Team=isTeam,Box=bx,HB=nil,HBBg=nil}end
+local function ClearPlayer(name)local d=Data[name]if not d then return end for i=1,#d.L do RLine(d.L[i])end RLine(d.T)if d.Box then pcall(d.Box.Remove,d.Box)end if d.HB then pcall(d.HB.Remove,d.HB)end if d.HBBg then pcall(d.HBBg.Remove,d.HBBg)end if d.H then pcall(d.H.Destroy,d.H)end if d.BB then pcall(d.BB.Destroy,d.BB)end Data[name]=nil end
+local function ApplyHitbox(p)if not S.Hitbox or p==LP then return end local c=p.Character if not c or HitboxData[p.Name]then return end local is15=c:FindFirstChild("UpperTorso")~=nil local targets=is15 and{"Head","HumanoidRootPart","UpperTorso","LowerTorso"}or{"Head","HumanoidRootPart","Torso"}local saved={}local hbv=S.HBV for i=1,#targets do local x=c:FindFirstChild(targets[i])if x and x:IsA("BasePart")then saved[targets[i]]={x.Size,x.Massless,x.CanCollide}x.Size=x.Size*hbv x.Massless=true x.CanCollide=false end end HitboxData[p.Name]=saved end
+local function RestoreHitbox(name)local t=HitboxData[name]if not t then return end local p=Players:FindFirstChild(name)local c=p and p.Character if c then for pn,d in t do local x=c:FindFirstChild(pn)if x and x:IsA("BasePart")then pcall(function()x.Size=d[1]x.Massless=d[2]x.CanCollide=d[3]end)end end end HitboxData[name]=nil end
+local function RefreshHitboxes()for n in HitboxData do RestoreHitbox(n)end if S.Hitbox then for _,p in GP(Players)do if p~=LP then ApplyHitbox(p)end end end end
+local function RefreshESP()for n in Data do ClearPlayer(n)end for _,p in GP(Players)do if p.Character then MakeESP(p)end end end
+local function IsVisible(part,player)if not part then return false end local now=tick()local c=VC[player]if c and now-c.t<0.2 then return c.v end VF[1]=Cam VF[2]=LP.Character RP.FilterDescendantsInstances=VF local ray=RC(workspace,Cam.CFrame.Position,part.Position-Cam.CFrame.Position,RP)local res if not ray then res=true else local m=ray.Instance:FindFirstAncestorOfClass("Model")res=m and m==part.Parent and m:FindFirstChildOfClass("Humanoid")~=nil end VC[player]={t=now,v=res}return res end
+local function PredictPos(part)if not S.AI or not part then return part.Position end local r=part.Parent and part.Parent:FindFirstChild("HumanoidRootPart")if not r then return part.Position end local v=r.AssemblyLinearVelocity if S.PredictionType=="Acceleration"then local a=r:GetAttribute("Acceleration")or Vector3.zero return part.Position+v*S.Pred+0.5*a*S.Pred*S.Pred elseif S.PredictionType=="Gravity"then return part.Position+v*S.Pred+Vector3.new(0,-workspace.Gravity*S.Pred*S.Pred*0.5,0)end return part.Position+v*S.Pred end
+local function GetTarget()local myTeam=LP.Team local teamCheck=S.Team and myTeam local myChar=LP.Character local myPos=myChar and myChar:FindFirstChild("HumanoidRootPart")if not myPos then return nil end local myPosV=myPos.Position local maxD=S.MaxDist local candidates={}for _,p in GP(Players)do if p==LP then continue end if teamCheck and p.Team==myTeam then continue end local ch=p.Character if not ch then continue end local h=ch:FindFirstChildOfClass("Humanoid")if not h or h.Health<=0 then continue end local pt=ch:FindFirstChild("Head")or ch:FindFirstChild("HumanoidRootPart")if not pt then continue end local dist=(pt.Position-myPosV).Magnitude if dist>maxD then continue end if S.VisCheck and not S.AimWallBang and not IsVisible(pt,p)then continue end local sp,on=W2V(Cam,PredictPos(pt))if not(on and sp.Z>0)then continue end local sd=(Vector2.new(sp.X,sp.Y)-VPC).Magnitude if sd>S.FOV then continue end table.insert(candidates,{Part=pt,Dist=dist,ScreenDist=sd,Health=h.Health,WL=S.Whitelist[p.Name]==true})end if #candidates==0 then return nil end table.sort(candidates,function(a,b)if a.WL~=b.WL then return a.WL end if S.AimPriority=="Health"then return a.Health<b.Health end if S.AimPriority=="Threat"then return(a.Health*0.5+a.Dist*0.01)<(b.Health*0.5+b.Dist*0.01)end return a.ScreenDist<b.ScreenDist end)local best=candidates[1]if S.InstantSnap then pcall(function()Cam.CFrame=CFrame.new(Cam.CFrame.Position,PredictPos(best.Part))end)end return best.Part end
+local function ApplySpeed()local c=LP.Character if c then local h=c:FindFirstChildOfClass("Humanoid")if h then h.WalkSpeed=S.Spd and S.SpdV or 16 end end end
+local function ApplyJump()local c=LP.Character if c then local h=c:FindFirstChildOfClass("Humanoid")if h then h.JumpPower=S.Jmp and S.JmpV or 50 h.UseJumpPower=true end end end
+local FlyCtrl
+local function ToggleFly(on)S.Fly=on FlyMode=nil local c=LP.Character if not c then return end local r,h=c:FindFirstChild("HumanoidRootPart"),c:FindFirstChildOfClass("Humanoid")if not r or not h then return end if on then h.PlatformStand=true FlyBV=New("BodyVelocity",r)FlyBV.MaxForce=Vector3.new(9e9,9e9,9e9)FlyBV.Velocity=Vector3.zero FlyBG=New("BodyGyro",r)FlyBG.MaxTorque=Vector3.new(9e9,9e9,9e9)FlyBG.P=9e4 else h.PlatformStand=false if FlyBV then FlyBV:Destroy()FlyBV=nil end if FlyBG then FlyBG:Destroy()FlyBG=nil end end end
+local function ToggleNoclip(on)S.Noclip=on if NoclipConn then NoclipConn:Disconnect()NoclipConn=nil end if on then NoclipConn=RunService.Stepped:Connect(function()local c=LP.Character if c then for _,p in c:GetDescendants()do if p:IsA("BasePart")then p.CanCollide=false end end end end)end end
+local function ToggleInfJump(on)S.InfJ=on if InfJConn then InfJConn:Disconnect()InfJConn=nil end if on then InfJConn=UIS.JumpRequest:Connect(function()local c=LP.Character if c then local h=c:FindFirstChildOfClass("Humanoid")if h then h:ChangeState(Enum.HumanoidStateType.Jumping)end end end)end end
+local OL={}
+local function ToggleLight(on)S.LightOpt=on if on then OL.gs,OL.fe,OL.br=Lighting.GlobalShadows,Lighting.FogEnd,Lighting.Brightness pcall(function()Lighting.GlobalShadows=false Lighting.FogEnd=100000 Lighting.Brightness=2 end)else pcall(function()if OL.gs~=nil then Lighting.GlobalShadows=OL.gs end if OL.fe~=nil then Lighting.FogEnd=OL.fe end if OL.br~=nil then Lighting.Brightness=OL.br end end)end end
+local OB={}
+local function ToggleFB(on)S.Fullbright=on if on then OB.br,OB.am,OB.oa=Lighting.Brightness,Lighting.Ambient,Lighting.OutdoorAmbient pcall(function()Lighting.Brightness=3 Lighting.Ambient=Color3.fromRGB(180,180,180)Lighting.OutdoorAmbient=Color3.fromRGB(180,180,180)end)else pcall(function()if OB.br then Lighting.Brightness=OB.br end if OB.am then Lighting.Ambient=OB.am end if OB.oa then Lighting.OutdoorAmbient=OB.oa end end)end end
+local function EnableKick(on)if AB.active and on then return end if not on and not AB.active then return end AB.active=on if on then if AB.orig.K==nil then AB.orig.K=LP.Kick end if hookfunction and newcclosure then pcall(function()hookfunction(LP.Kick,newcclosure(function(s,m)if checkcaller and checkcaller()then return AB.orig.K(s,m)end if s==LP then return nil end return AB.orig.K(s,m)end))end)end AB.conns.An=LP.AncestryChanged:Connect(function(_,parent)if parent==nil then pcall(function()LP.Parent=Players end)end end)local function susp(n)local l=n:lower()for _,w in{"kick","ban","detect","flag","punish","disconnect","exploit","cheat","terminate"}do if l:find(w,1,true)then return true end end end local function hookR(o)if AB.hookedRemotes[o]then return end AB.hookedRemotes[o]=true if o.FireServer and hookfunction and newcclosure then pcall(function()local og=o.FireServer hookfunction(og,newcclosure(function(s,...)local a={...}local r=tostring(a[1]or""):lower()if r:find("kick",1,true)or r:find("ban",1,true)or r:find("detect",1,true)then return nil end return og(s,...)end))end)end end for _,o in RS:GetDescendants()do if(o:IsA("RemoteEvent")or o:IsA("RemoteFunction"))and susp(o.Name)then hookR(o)end end AB.conns.R=RS.DescendantAdded:Connect(function(o)if(o:IsA("RemoteEvent")or o:IsA("RemoteFunction"))and susp(o.Name)then hookR(o)end end)local cnt=0 AB.conns.W=RunService.Heartbeat:Connect(function()cnt=cnt+1 if cnt>=30 then cnt=0 if LP.Parent~=Players then pcall(function()LP.Parent=Players end)end end end)else if AB.orig.K and hookfunction then pcall(function()hookfunction(LP.Kick,AB.orig.K)end)end for _,c in AB.conns do if c then pcall(function()c:Disconnect()end)end end AB.conns={}AB.hookedRemotes={}end end
+local function EnableTP(on)S.AB_TP=on if AB.conns.TP then AB.conns.TP:Disconnect()AB.conns.TP=nil end if on then local last AB.conns.TP=RunService.Heartbeat:Connect(function()local c=LP.Character local h=c and c:FindFirstChild("HumanoidRootPart")if not h then return end local pos=h.Position if last and(pos-last).Magnitude>80 and not S.Fly and not S.Noclip then pcall(function()h.CFrame=CFrame.new(last)end)end last=pos end)end end
+local function EnableChar(on)S.AB_Char=on if AB.conns.CH then AB.conns.CH:Disconnect()AB.conns.CH=nil end if on then AB.conns.CH=LP.CharacterRemoving:Connect(function()task.delay(0.5,function()if LP.Character then if not Data[LP.Name]then pcall(MakeESP,LP)end if S.Hitbox and not HitboxData[LP.Name]then pcall(ApplyHitbox,LP)end end end)end)end end
+local function EnableRemote(on)S.AB_Remote=on if AB.conns.RM then AB.conns.RM:Disconnect()AB.conns.RM=nil end if on then AB.conns.RM=RS.DescendantAdded:Connect(function(o)if o:IsA("RemoteEvent")or o:IsA("RemoteFunction")then local l=o.Name:lower()for _,k in{"kick","ban","detect","report","flag","cheat","exploit"}do if l:find(k,1,true)then if hookfunction and newcclosure and o.FireServer then pcall(function()hookfunction(o.FireServer,newcclosure(function()end))end)end break end end end end)end end
+local function EnableMove(on)S.AB_Move=on if AB.conns.MV then AB.conns.MV:Disconnect()AB.conns.MV=nil end if on then AB.conns.MV=RunService.Stepped:Connect(function()local c=LP.Character local h=c and c:FindFirstChildOfClass("Humanoid")local r=c and c:FindFirstChild("HumanoidRootPart")if not h or not r then return end pcall(function()h:SetAttribute("Speed",16)h:SetAttribute("Velocity",r.AssemblyLinearVelocity.Magnitude)end)end)end end
+local function FireTool()local c=LP.Character if not c then return end local tool=c:FindFirstChildOfClass("Tool")if not tool then return end pcall(function()tool:Activate()end)if mouse1click then pcall(mouse1click)end if mouse1press and mouse1release then pcall(mouse1press)task.wait(0.02)pcall(mouse1release)end end
+local function LockCamera()if not Target then return end local tp=PredictPos(Target)local sp=W2V(Cam,tp)if sp.Z<=0 then return end local m=UIS:GetMouseLocation()local dx=(sp.X-m.X)*S.SilentSmooth local dy=(sp.Y-m.Y)*S.SilentSmooth if mousemoverel then pcall(mousemoverel,dx,dy)end end
+local function TriggerShot(target)local tp=PredictPos(target)if S.Silent then if S.SilentMode=="Hook"then SilentTarget=target FireTool()task.delay(0.08,function()if SilentTarget==target then SilentTarget=nil end end)else FireTool()end return end local c=LP.Character if not c then return end local r=c:FindFirstChild("HumanoidRootPart")local h=c:FindFirstChildOfClass("Humanoid")if not r or not h then return end Cam.CFrame=CFrame.new(Cam.CFrame.Position,tp)h.AutoRotate=false r.CFrame=CFrame.new(r.Position,Vector3.new(tp.X,r.Position.Y,tp.Z))task.wait(0.02)FireTool()task.delay(0.08,function()if h and h.Parent then h.AutoRotate=true end end)end
+local OrigLerp=CFrame.Lerp
+local function SmoothCFrame(a,b,f)if S.AimSmoothing=="Exponential"then return OrigLerp(a,b,f*f)elseif S.AimSmoothing=="Bezier"then local mid=OrigLerp(a,b,0.5)local p1=OrigLerp(a,mid,f)local p2=OrigLerp(mid,b,f)return OrigLerp(p1,p2,f)end return OrigLerp(a,b,f)end
+local RainbowHue=0
+local function UpdateESPAdvanced()RainbowHue=(RainbowHue+0.005)%1 local rainbowColor=Color3.fromHSV(RainbowHue,0.8,1)local maxD=S.MaxDist for name,d in Data do if not(d.C and d.C.Parent)then continue end local h=d.C:FindFirstChildOfClass("Humanoid")local head=d.C:FindFirstChild("Head")local dist=(d.R.Position-Cam.CFrame.Position).Magnitude local fade=1 if S.ESPDistanceFade then fade=clamp(1-(dist/maxD)*0.7,0.3,1)end local baseColor if S.ESPRainbow then baseColor=rainbowColor elseif S.ESPTeamColor and d.Team then baseColor=C.TeamGreen else if dist<=750 then baseColor=Color3.fromRGB(255,105,180)elseif dist<=1875 then baseColor=Color3.fromRGB(255,80,80)else baseColor=Color3.fromRGB(80,220,120)end end if S.ESPHealthBar and h and head then if not d.HB then d.HB=Drawing.new("Square")d.HB.Filled=true d.HB.Thickness=0 d.HBBg=Drawing.new("Square")d.HBBg.Filled=true d.HBBg.Color=Color3.fromRGB(20,15,25)end local hv,ho=W2V(Cam,head.Position+Vector3.new(0,1.2,0))local bv,bo=W2V(Cam,d.R.Position-Vector3.new(0,2,0))if ho and bo and hv.Z>0 and bv.Z>0 then local bh=abs(bv.Y-hv.Y)local bw=math.max(bh*0.55,25)local hp=h.Health/h.MaxHealth d.HBBg.Size=Vector2.new(bw+2,bh+2)d.HBBg.Position=Vector2.new(hv.X-bw/2-1,hv.Y-1)d.HBBg.Transparency=0.7*fade d.HBBg.Visible=true d.HB.Size=Vector2.new(bw*hp,bh)d.HB.Position=Vector2.new(hv.X-bw/2,hv.Y)d.HB.Color=Color3.fromRGB(255*(1-hp),255*hp,60)d.HB.Transparency=0.4*fade d.HB.Visible=true else if d.HB then d.HB.Visible=false end if d.HBBg then d.HBBg.Visible=false end end elseif d.HB then d.HB.Visible=false if d.HBBg then d.HBBg.Visible=false end end if S.Skel then for i=1,#d.L do if d.L[i].Visible then d.L[i].Color=baseColor end end end if d.T.Visible then d.T.Color=baseColor end if d.H then d.H.FillColor=baseColor end if d.NL and(S.ESPNameTag or S.ESPHealthText or S.ESPThreatLevel)and h then local text=name if S.ESPHealthText then text=text.." ["..floor(h.Health).."/"..floor(h.MaxHealth).."]"end if S.ESPThreatLevel then local hp=h.Health/h.MaxHealth local stars=hp>0.7 and"★"or(hp>0.3 and"★★"or"★★★")text=text.." "..stars end d.NL.Text=text end end end
+RunService.RenderStepped:Connect(function()local now=tick()FrameSkip=FrameSkip+1 local updateDist=(FrameSkip%6==0)UpdateFOVCircle()local wallMode=S.ESPWallCheck for name,d in Data do if d.C and d.C.Parent then local vis=true if wallMode~="None"then local chk=d.C:FindFirstChild("Head")or d.R if chk then vis=IsVisible(chk,Players:FindFirstChild(name))end end d.Visible=vis local showSkel=true if wallMode=="Visible Only"then showSkel=vis elseif wallMode=="Hidden Only"then showSkel=not vis end local lineColor=(S.ESPTeamColor and d.Team)and C.TeamGreen or C.Accent if wallMode=="Color Code"then lineColor=vis and Color3.fromRGB(80,220,140)or Color3.fromRGB(255,90,110)end if S.Skel and showSkel then local sc=d.SC if table.clear then table.clear(sc)else for k in sc do sc[k]=nil end end local bp=d.BP for i=1,#bp do local pr=bp[i]local p0,p1=pr[1],pr[2]if p0 and not sc[p0]then local v,o=W2V(Cam,p0.Position)sc[p0]=(o and v.Z>0)and Vector2.new(v.X,v.Y)or false end if p1 and not sc[p1]then local v,o=W2V(Cam,p1.Position)sc[p1]=(o and v.Z>0)and Vector2.new(v.X,v.Y)or false end end local lines=d.L for i=1,#bp do local pr=bp[i]local p0,p1,ln=pr[1],pr[2],lines[i]local s0=p0 and sc[p0]local s1=p1 and sc[p1]if s0 and s1 then ln.From=s0 ln.To=s1 ln.Visible=true if wallMode=="Color Code"then ln.Color=lineColor end elseif ln.Visible then ln.Visible=false end end else for i=1,#d.L do if d.L[i].Visible then d.L[i].Visible=false end end end if d.Box then if S.ESPBox and showSkel then local head=d.C:FindFirstChild("Head")local foot=d.R.Position-Vector3.new(0,3,0)if head then local tv,to=W2V(Cam,head.Position+Vector3.new(0,0.6,0))local bv,bo=W2V(Cam,foot)if to and bo and tv.Z>0 and bv.Z>0 then local hh=bv.Y-tv.Y local ww=hh*0.55 d.Box.Size=Vector2.new(ww,hh)d.Box.Position=Vector2.new(tv.X-ww/2,tv.Y)d.Box.Color=lineColor d.Box.Visible=true else d.Box.Visible=false end end else d.Box.Visible=false end end if S.Trace and showSkel then local sp,on=W2V(Cam,d.R.Position)if on and sp.Z>0 then d.T.From=Vector2.new(VPC.X,Cam.ViewportSize.Y)d.T.To=Vector2.new(sp.X,sp.Y)d.T.Visible=true if wallMode=="Color Code"then d.T.Color=lineColor end elseif d.T.Visible then d.T.Visible=false end elseif d.T.Visible then d.T.Visible=false end if d.H.Enabled~=S.Chams then d.H.Enabled=S.Chams end if updateDist then local m=floor((d.R.Position-Cam.CFrame.Position).Magnitude)if m~=d.lD then d.lD=m d.DL.Text=m.."m"end end else ClearPlayer(name)end end if S.Aim or S.Trig or S.Silent then local target=GetTarget()Target=target if target then local tp=PredictPos(target)if S.Aim then Cam.CFrame=SmoothCFrame(Cam.CFrame,CFrame.new(Cam.CFrame.Position,tp),S.Smooth)end if S.Silent and S.SilentMode=="Mouse"then LockCamera()end if S.Trig and now-LastShot>S.TrigD then LastShot=now TriggerShot(target)end end end if S.AutoShoot and not IsLobby()and Target then if now-LastAuto>S.AutoShootDelay then LastAuto=now if S.Silent and S.SilentMode=="Hook"then SilentTarget=Target FireTool()task.delay(0.08,function()SilentTarget=nil end)else FireTool()end end end if S.Fly and FlyBV then local dir=Vector3.zero if FlyMode=="up"then dir=Cam.CFrame.LookVector elseif FlyMode=="down"then dir=-Cam.CFrame.LookVector end if dir.Magnitude>0 then FlyBV.Velocity=dir*S.FlyV else FlyBV.Velocity=Vector3.zero end end end)
+LP.CharacterAdded:Connect(function()task.wait(1)ApplySpeed()ApplyJump()if S.Fly then ToggleFly(true)if FlyCtrl then FlyCtrl.Visible=true end end if S.Noclip then ToggleNoclip(true)end if S.InfJ then ToggleInfJump(true)end end)
+local WHITE=Color3.new(1,1,1)
+local PURPLE=Color3.fromRGB(140,60,255)
+local BG_DARK=Color3.fromRGB(15,12,20)
+local BG_MID=Color3.fromRGB(25,20,35)
+local BG_BTN=Color3.fromRGB(38,32,50)
+local TEXT_DIM=Color3.fromRGB(170,160,190)
+local ScreenGui=New("ScreenGui")
+ScreenGui.Name="G"..rnd()
+ScreenGui.ResetOnSpawn=false
+ScreenGui.IgnoreGuiInset=true
+ScreenGui.DisplayOrder=999
+ScreenGui.Parent=CoreGui
+local HUDGui=New("ScreenGui")
+HUDGui.Name="KHUD"..rnd()
+HUDGui.ResetOnSpawn=false
+HUDGui.IgnoreGuiInset=true
+HUDGui.DisplayOrder=1000
+HUDGui.Parent=CoreGui
+local PlayerHUD=New("Frame",HUDGui)
+PlayerHUD.Size=UDim2.new(0,200,0,70)
+PlayerHUD.Position=UDim2.new(0,10,0,10)
+PlayerHUD.BackgroundColor3=Color3.fromRGB(12,10,18)
+PlayerHUD.BackgroundTransparency=0.25
+PlayerHUD.BorderSizePixel=0
+PlayerHUD.Visible=false
+New("UICorner",PlayerHUD).CornerRadius=UDim.new(0,10)
+local PH_Name=New("TextLabel",PlayerHUD)
+PH_Name.Size=UDim2.new(1,-12,0,18)
+PH_Name.Position=UDim2.new(0,6,0,4)
+PH_Name.BackgroundTransparency=1
+PH_Name.TextColor3=Color3.fromRGB(220,180,255)
+PH_Name.Font=Enum.Font.GothamBold
+PH_Name.TextSize=12
+PH_Name.TextXAlignment=Enum.TextXAlignment.Left
+local PH_Health=New("TextLabel",PlayerHUD)
+PH_Health.Size=UDim2.new(1,-12,0,16)
+PH_Health.Position=UDim2.new(0,6,0,24)
+PH_Health.BackgroundTransparency=1
+PH_Health.TextColor3=Color3.fromRGB(255,120,140)
+PH_Health.Font=Enum.Font.GothamMedium
+PH_Health.TextSize=11
+PH_Health.TextXAlignment=Enum.TextXAlignment.Left
+local PH_Dist=New("TextLabel",PlayerHUD)
+PH_Dist.Size=UDim2.new(1,-12,0,16)
+PH_Dist.Position=UDim2.new(0,6,0,42)
+PH_Dist.BackgroundTransparency=1
+PH_Dist.TextColor3=Color3.fromRGB(160,200,255)
+PH_Dist.Font=Enum.Font.GothamMedium
+PH_Dist.TextSize=11
+PH_Dist.TextXAlignment=Enum.TextXAlignment.Left
+local TargetIndicator=New("Frame",HUDGui)
+TargetIndicator.Size=UDim2.new(0,40,0,40)
+TargetIndicator.BackgroundTransparency=1
+TargetIndicator.Visible=false
+local tiRing=New("Frame",TargetIndicator)
+tiRing.Size=UDim2.new(1,0,1,0)
+tiRing.BackgroundTransparency=1
+local tiStroke=New("UIStroke",tiRing)
+tiStroke.Color=Color3.fromRGB(255,80,100)
+tiStroke.Thickness=3
+tiStroke.Transparency=0.2
+New("UICorner",tiRing).CornerRadius=UDim.new(1,0)
+local HitFlash=New("Frame",HUDGui)
+HitFlash.Size=UDim2.new(1,0,1,0)
+HitFlash.BackgroundColor3=Color3.fromRGB(255,80,100)
+HitFlash.BackgroundTransparency=1
+HitFlash.BorderSizePixel=0
+HitFlash.ZIndex=999
+HitFlash.Visible=false
+local HitSound=New("Sound",HUDGui)
+HitSound.SoundId="rbxassetid://6042053626"
+HitSound.Volume=1.5
+local function OnHit()if not S.HitNotify then return end HitFlash.Visible=true HitFlash.BackgroundTransparency=0.7 Tween:Create(HitFlash,TweenInfo.new(0.25),{BackgroundTransparency=1}):Play()task.delay(0.3,function()HitFlash.Visible=false end)pcall(function()HitSound:Play()end)end
+local FlingConn=nil
+local function ToggleAntiFling(on)S.AntiFling=on if FlingConn then FlingConn:Disconnect()FlingConn=nil end if not on then return end FlingConn=RunService.Heartbeat:Connect(function()local c=LP.Character if not c then return end local r=c:FindFirstChild("HumanoidRootPart")if not r then return end local vel=r.AssemblyLinearVelocity local horiz=Vector3.new(vel.X,0,vel.Z).Magnitude if horiz>200 then pcall(function()r.AssemblyLinearVelocity=Vector3.new(0,vel.Y,0)end)end if r.AssemblyAngularVelocity.Magnitude>50 then pcall(function()r.AssemblyAngularVelocity=Vector3.zero end)end end)end
+local TracerLine=nil
+local function UpdateTracerToTarget()if not TracerLine then TracerLine=Drawing.new("Line")TracerLine.Thickness=1.5 TracerLine.Color=Color3.fromRGB(255,80,120)TracerLine.Transparency=0.7 TracerLine.Visible=false end if not S.TracerToTarget or not Target then if TracerLine.Visible then TracerLine.Visible=false end return end local sp,on=W2V(Cam,Target.Position)if on and sp.Z>0 then TracerLine.From=Vector2.new(VPC.X,VPC.Y)TracerLine.To=Vector2.new(sp.X,sp.Y)TracerLine.Visible=true else TracerLine.Visible=false end end
+local function UpdatePlayerHUD()if not S.PlayerHUD then if PlayerHUD.Visible then PlayerHUD.Visible=false end return end local c=LP.Character local h=c and c:FindFirstChildOfClass("Humanoid")if not h then PlayerHUD.Visible=false return end PlayerHUD.Visible=true PH_Name.Text=LP.Name.." | "..LP.DisplayName PH_Health.Text="HP: "..floor(h.Health).." / "..floor(h.MaxHealth)if S.NearestPlayerHUD then local nearest,nd=nil,math.huge local myPos=c:FindFirstChild("HumanoidRootPart")if myPos then for _,p in GP(Players)do if p==LP then continue end local ch=p.Character if not ch then continue end local hrp=ch:FindFirstChild("HumanoidRootPart")if not hrp then continue end local d=(hrp.Position-myPos.Position).Magnitude if d<nd then nd=d nearest=p end end end if nearest then PH_Dist.Text="Nearest: "..nearest.Name.." ("..floor(nd).."m)"else PH_Dist.Text="Nearest: ---"end else PH_Dist.Text=""end end
+local function UpdateTargetIndicator()if not S.TargetIndicator or not Target then if TargetIndicator.Visible then TargetIndicator.Visible=false end return end local sp,on=W2V(Cam,Target.Position)if on and sp.Z>0 then TargetIndicator.Position=UDim2.new(0,sp.X-20,0,sp.Y-20)TargetIndicator.Visible=true TargetIndicator.Rotation=(TargetIndicator.Rotation+3)%360 else TargetIndicator.Visible=false end end
+local function ApplyNoKillFlash()if not S.NoKillFlash then return end local pg=LP:FindFirstChild("PlayerGui")if not pg then return end for _,o in pg:GetChildren()do if o:IsA("ImageLabel")or o:IsA("Frame")then local n=o.Name:lower()if n:find("flash")or n:find("blood")or n:find("hit")then if o.Visible then o.Visible=false end end end end end
+local HitConns={}
+local function SetupHitDetection()for _,c in HitConns do pcall(function()c:Disconnect()end)end HitConns={}for _,p in GP(Players)do if p==LP then continue end local ch=p.Character if not ch then continue end local h=ch:FindFirstChildOfClass("Humanoid")if not h then continue end local last=h.Health table.insert(HitConns,h.HealthChanged:Connect(function(newH)if newH<last then local tool=LP.Character and LP.Character:FindFirstChildOfClass("Tool")if tool then OnHit()end end last=newH end))end end
+local RenderCounter=0
+local function ShouldRender()if S.RenderThrottle<=1 then return true end RenderCounter=RenderCounter+1 if RenderCounter>=S.RenderThrottle then RenderCounter=0 return true end return false end
+RunService.RenderStepped:Connect(function()if not ShouldRender()then return end UpdateESPAdvanced()UpdatePlayerHUD()UpdateTargetIndicator()UpdateTracerToTarget()if S.NoKillFlash then ApplyNoKillFlash()end end)
+local FloatBtn=New("TextButton",ScreenGui)
+FloatBtn.Size=UDim2.new(0,68,0,68)
+FloatBtn.Position=UDim2.new(1,-82,0.5,-34)
+FloatBtn.BackgroundColor3=Color3.fromRGB(35,25,55)
+FloatBtn.Text="MENU"
+FloatBtn.TextColor3=WHITE
+FloatBtn.Font=Enum.Font.GothamBold
+FloatBtn.TextSize=12
+FloatBtn.AutoButtonColor=false
+FloatBtn.Active=true
+New("UICorner",FloatBtn).CornerRadius=UDim.new(1,0)
+local floatGrad=New("UIGradient",FloatBtn)
+floatGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(160,80,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(210,70,190))})
+floatGrad.Rotation=45
+local floatStroke=New("UIStroke",FloatBtn)
+floatStroke.Color=Color3.fromRGB(230,200,255)
+floatStroke.Thickness=2
+floatStroke.Transparency=0.2
+FlyCtrl=New("TextButton",ScreenGui)
+FlyCtrl.Size=UDim2.new(0,76,0,76)
+FlyCtrl.Position=UDim2.new(0,14,1,-176)
+FlyCtrl.BackgroundColor3=BG_MID
+FlyCtrl.Text="飛行\n長押し"
+FlyCtrl.TextColor3=WHITE
+FlyCtrl.Font=Enum.Font.GothamBold
+FlyCtrl.TextSize=13
+FlyCtrl.AutoButtonColor=false
+FlyCtrl.Visible=false
+New("UICorner",FlyCtrl).CornerRadius=UDim.new(0,14)
+local flyStroke=New("UIStroke",FlyCtrl)
+flyStroke.Color=PURPLE
+flyStroke.Thickness=2
+flyStroke.Transparency=0.25
+FlyCtrl.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then FlyMode="up"Tween:Create(FlyCtrl,TweenInfo.new(0.08),{BackgroundColor3=PURPLE}):Play()end end)
+FlyCtrl.InputEnded:Connect(function(i)if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then FlyMode=nil Tween:Create(FlyCtrl,TweenInfo.new(0.08),{BackgroundColor3=BG_MID}):Play()end end)
+local MainPanel=New("Frame",ScreenGui)
+MainPanel.Size=UDim2.new(0,700,0,440)
+MainPanel.Position=UDim2.new(0.5,-350,0.5,-220)
+MainPanel.BackgroundColor3=BG_DARK
+MainPanel.Visible=false
+MainPanel.Active=true
+New("UICorner",MainPanel).CornerRadius=UDim.new(0,16)
+if getgenv and getgenv().KataoyaPanelPos and getgenv().KataoyaPanelPos.panel then MainPanel.Position=getgenv().KataoyaPanelPos.panel end
+local panelGrad=New("UIGradient",MainPanel)
+panelGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(22,16,32)),ColorSequenceKeypoint.new(1,Color3.fromRGB(13,10,20))})
+panelGrad.Rotation=90
+local panelStroke=New("UIStroke",MainPanel)
+panelStroke.Color=PURPLE
+panelStroke.Thickness=1.5
+panelStroke.Transparency=0.35
+local TitleBar=New("Frame",MainPanel)
+TitleBar.Size=UDim2.new(1,0,0,48)
+TitleBar.BackgroundColor3=BG_MID
+TitleBar.Active=true
+New("UICorner",TitleBar).CornerRadius=UDim.new(0,16)
+local titleGrad=New("UIGradient",TitleBar)
+titleGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(48,28,75)),ColorSequenceKeypoint.new(1,Color3.fromRGB(30,20,48))})
+local accent=New("Frame",TitleBar)
+accent.Size=UDim2.new(0,4,0,24)
+accent.Position=UDim2.new(0,14,0.5,-12)
+accent.BackgroundColor3=PURPLE
+accent.BorderSizePixel=0
+New("UICorner",accent).CornerRadius=UDim.new(1,0)
+local TitleText=New("TextLabel",TitleBar)
+TitleText.Size=UDim2.new(1,-160,1,0)
+TitleText.Position=UDim2.new(0,28,0,0)
+TitleText.BackgroundTransparency=1
+TitleText.Text="Kataoya v7.0 | 日本語版"
+TitleText.TextColor3=Color3.fromRGB(215,180,255)
+TitleText.Font=Enum.Font.GothamBold
+TitleText.TextSize=15
+TitleText.TextXAlignment=Enum.TextXAlignment.Left
+local CloseBtn=New("TextButton",TitleBar)
+CloseBtn.Size=UDim2.new(0,36,0,36)
+CloseBtn.Position=UDim2.new(1,-50,0.5,-18)
+CloseBtn.BackgroundColor3=Color3.fromRGB(60,22,38)
+CloseBtn.Text="X"
+CloseBtn.TextColor3=Color3.fromRGB(255,110,130)
+CloseBtn.Font=Enum.Font.GothamBold
+CloseBtn.TextSize=15
+CloseBtn.AutoButtonColor=false
+New("UICorner",CloseBtn).CornerRadius=UDim.new(0,9)
+local TabBar=New("Frame",MainPanel)
+TabBar.Size=UDim2.new(1,-24,0,40)
+TabBar.Position=UDim2.new(0,12,0,54)
+TabBar.BackgroundColor3=Color3.fromRGB(18,14,26)
+TabBar.BorderSizePixel=0
+New("UICorner",TabBar).CornerRadius=UDim.new(0,10)
+local tabLayout=New("UIListLayout",TabBar)
+tabLayout.FillDirection=Enum.FillDirection.Horizontal
+tabLayout.Padding=UDim.new(0,5)
+tabLayout.HorizontalAlignment=Enum.HorizontalAlignment.Center
+tabLayout.VerticalAlignment=Enum.VerticalAlignment.Center
+local ContentArea=New("Frame",MainPanel)
+ContentArea.Size=UDim2.new(1,-24,1,-116)
+ContentArea.Position=UDim2.new(0,12,0,104)
+ContentArea.BackgroundTransparency=1
+local contentScroll=New("ScrollingFrame",ContentArea)
+contentScroll.Size=UDim2.new(1,0,1,0)
+contentScroll.BackgroundTransparency=1
+contentScroll.BorderSizePixel=0
+contentScroll.ScrollBarThickness=4
+contentScroll.ScrollBarImageColor3=PURPLE
+contentScroll.ScrollingDirection=Enum.ScrollingDirection.Y
+contentScroll.CanvasSize=UDim2.new(0,0,0,0)
+contentScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+local dragging,dragStart,startPos=false,nil,nil
+TitleBar.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then dragging,dragStart,startPos=true,i.Position,MainPanel.Position end end)
+local floatDragging,floatMoved=false,false
+local floatStart,floatOrigin
+FloatBtn.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then floatDragging,floatMoved=true,false floatStart,floatOrigin=i.Position,FloatBtn.Position end end)
+UIS.InputChanged:Connect(function(i)local t=i.UserInputType if t~=Enum.UserInputType.Touch and t~=Enum.UserInputType.MouseMovement then return end if dragging then local d=i.Position-dragStart MainPanel.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)end if floatDragging then local d=i.Position-floatStart if abs(d.X)>8 or abs(d.Y)>8 then floatMoved=true end FloatBtn.Position=UDim2.new(floatOrigin.X.Scale,floatOrigin.X.Offset+d.X,floatOrigin.Y.Scale,floatOrigin.Y.Offset+d.Y)end end)
+UIS.InputEnded:Connect(function(i)local t=i.UserInputType if t~=Enum.UserInputType.Touch and t~=Enum.UserInputType.MouseButton1 then return end if dragging then dragging=false if getgenv then getgenv().KataoyaPanelPos=getgenv().KataoyaPanelPos or{}getgenv().KataoyaPanelPos.panel=MainPanel.Position end end if floatDragging then if not floatMoved then MainPanel.Visible=not MainPanel.Visible end floatDragging=false end end)
+CloseBtn.MouseButton1Click:Connect(function()MainPanel.Visible=false end)
+local function CreateSection(title,icon)local card=New("Frame",contentScroll)card.Size=UDim2.new(1,-8,0,60)card.BackgroundColor3=BG_MID card.BorderSizePixel=0 card.AutomaticSize=Enum.AutomaticSize.Y New("UICorner",card).CornerRadius=UDim.new(0,12)local header=New("Frame",card)header.Size=UDim2.new(1,0,0,38)header.BackgroundColor3=Color3.fromRGB(34,26,48)header.BorderSizePixel=0 New("UICorner",header).CornerRadius=UDim.new(0,12)local iconBadge=New("Frame",header)iconBadge.Size=UDim2.new(0,22,0,22)iconBadge.Position=UDim2.new(0,12,0.5,-11)iconBadge.BackgroundColor3=PURPLE iconBadge.BorderSizePixel=0 New("UICorner",iconBadge).CornerRadius=UDim.new(0,6)local ic=New("TextLabel",iconBadge)ic.Size=UDim2.new(1,0,1,0)ic.BackgroundTransparency=1 ic.Text=icon or"◆"ic.TextColor3=WHITE ic.Font=Enum.Font.GothamBold ic.TextSize=12 local label=New("TextLabel",header)label.Size=UDim2.new(1,-50,1,0)label.Position=UDim2.new(0,40,0,0)label.BackgroundTransparency=1 label.Text=title label.TextColor3=Color3.fromRGB(220,185,255)label.Font=Enum.Font.GothamBold label.TextSize=13 label.TextXAlignment=Enum.TextXAlignment.Left local body=New("Frame",card)body.Size=UDim2.new(1,-16,0,0)body.Position=UDim2.new(0,8,0,46)body.BackgroundTransparency=1 body.AutomaticSize=Enum.AutomaticSize.Y local grid=New("UIGridLayout",body)grid.CellSize=UDim2.new(0.5,-5,0,38)grid.CellPadding=UDim2.new(0,10,0,8)grid.SortOrder=Enum.SortOrder.LayoutOrder grid.FillDirectionMaxCells=2 local list=New("UIListLayout",card)list.SortOrder=Enum.SortOrder.LayoutOrder return card,body end
+local function CreateToggle(parent,text,default,callback)local btn=New("TextButton",parent)btn.Size=UDim2.new(0,200,0,38)btn.BackgroundColor3=default and Color3.fromRGB(115,55,195)or BG_BTN btn.Text=""btn.AutoButtonColor=false btn.Active=true New("UICorner",btn).CornerRadius=UDim.new(0,9)local stroke=New("UIStroke",btn)stroke.Color=default and Color3.fromRGB(190,115,255)or Color3.fromRGB(70,58,92)stroke.Thickness=1 stroke.Transparency=0.3 local dot=New("Frame",btn)dot.Size=UDim2.new(0,8,0,8)dot.Position=UDim2.new(0,12,0.5,-4)dot.BackgroundColor3=default and Color3.fromRGB(120,255,170)or Color3.fromRGB(90,80,115)dot.BorderSizePixel=0 New("UICorner",dot).CornerRadius=UDim.new(1,0)local label=New("TextLabel",btn)label.Size=UDim2.new(1,-70,1,0)label.Position=UDim2.new(0,28,0,0)label.BackgroundTransparency=1 label.Text=text label.TextColor3=WHITE label.Font=Enum.Font.GothamMedium label.TextSize=12 label.TextXAlignment=Enum.TextXAlignment.Left local badge=New("Frame",btn)badge.Size=UDim2.new(0,42,0,22)badge.Position=UDim2.new(1,-50,0.5,-11)badge.BackgroundColor3=default and Color3.fromRGB(180,255,200)or Color3.fromRGB(55,48,70)badge.BorderSizePixel=0 New("UICorner",badge).CornerRadius=UDim.new(1,0)local badgeText=New("TextLabel",badge)badgeText.Size=UDim2.new(1,0,1,0)badgeText.BackgroundTransparency=1 badgeText.Text=default and"オン"or"オフ"badgeText.TextColor3=default and Color3.fromRGB(20,80,40)or TEXT_DIM badgeText.Font=Enum.Font.GothamBold badgeText.TextSize=10 local state=default local function update(ns,silent)state=ns local on=state Tween:Create(btn,TweenInfo.new(0.15),{BackgroundColor3=on and Color3.fromRGB(115,55,195)or BG_BTN}):Play()Tween:Create(stroke,TweenInfo.new(0.15),{Color=on and Color3.fromRGB(190,115,255)or Color3.fromRGB(70,58,92)}):Play()Tween:Create(dot,TweenInfo.new(0.15),{BackgroundColor3=on and Color3.fromRGB(120,255,170)or Color3.fromRGB(90,80,115)}):Play()Tween:Create(badge,TweenInfo.new(0.15),{BackgroundColor3=on and Color3.fromRGB(180,255,200)or Color3.fromRGB(55,48,70)}):Play()badgeText.Text=on and"オン"or"オフ"badgeText.TextColor3=on and Color3.fromRGB(20,80,40)or TEXT_DIM if not silent then callback(state)end end btn.MouseButton1Click:Connect(function()update(not state)end)return btn,update end
+local function CreateSlider(parent,text,min,max,default,decimals,callback,resetValue)local dec=decimals or 0 local resetVal=resetValue or default local frame=New("Frame",parent)frame.Size=UDim2.new(0,200,0,38)frame.BackgroundColor3=Color3.fromRGB(22,18,32)frame.BorderSizePixel=0 New("UICorner",frame).CornerRadius=UDim.new(0,9)local label=New("TextLabel",frame)label.Size=UDim2.new(1,-72,0,14)label.Position=UDim2.new(0,10,0,3)label.BackgroundTransparency=1 label.Text=text label.TextColor3=Color3.fromRGB(210,200,230)label.Font=Enum.Font.GothamMedium label.TextSize=11 label.TextXAlignment=Enum.TextXAlignment.Left local valueBadge=New("Frame",frame)valueBadge.Size=UDim2.new(0,56,0,16)valueBadge.Position=UDim2.new(1,-64,0,3)valueBadge.BackgroundColor3=Color3.fromRGB(50,35,80)valueBadge.BorderSizePixel=0 New("UICorner",valueBadge).CornerRadius=UDim.new(0,5)local valueText=New("TextLabel",valueBadge)valueText.Size=UDim2.new(1,0,1,0)valueText.BackgroundTransparency=1 valueText.Text=string.format("%."..dec.."f",default)valueText.TextColor3=Color3.fromRGB(220,180,255)valueText.Font=Enum.Font.GothamBold valueText.TextSize=10 local bar=New("Frame",frame)bar.Size=UDim2.new(1,-20,0,8)bar.Position=UDim2.new(0,10,0,24)bar.BackgroundColor3=Color3.fromRGB(35,30,45)bar.BorderSizePixel=0 New("UICorner",bar).CornerRadius=UDim.new(1,0)local fill=New("Frame",bar)fill.Size=UDim2.new((default-min)/(max-min),0,1,0)fill.BackgroundColor3=PURPLE fill.BorderSizePixel=0 New("UICorner",fill).CornerRadius=UDim.new(1,0)local handle=New("Frame",bar)handle.Size=UDim2.new(0,18,0,18)handle.AnchorPoint=Vector2.new(0.5,0.5)handle.Position=UDim2.new((default-min)/(max-min),0,0.5,0)handle.BackgroundColor3=WHITE handle.BorderSizePixel=0 New("UICorner",handle).CornerRadius=UDim.new(1,0)local catch=New("TextButton",frame)catch.Size=UDim2.new(1,0,1,0)catch.BackgroundTransparency=1 catch.Text=""local sliding=false local lastTap=0 local function update(input)local po=clamp((input.Position.X-bar.AbsolutePosition.X)/bar.AbsoluteSize.X,0,1)local v=min+(max-min)*po if dec==0 then v=floor(v+0.5)else v=floor(v*10^dec+0.5)/10^dec end local pc=(v-min)/(max-min)fill.Size=UDim2.new(pc,0,1,0)handle.Position=UDim2.new(pc,0,0.5,0)valueText.Text=string.format("%."..dec.."f",v)callback(v)end catch.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then local now=tick()if now-lastTap<0.3 then local po=(resetVal-min)/(max-min)fill.Size=UDim2.new(po,0,1,0)handle.Position=UDim2.new(po,0,0.5,0)valueText.Text=string.format("%."..dec.."f",resetVal)callback(resetVal)lastTap=0 return end lastTap=now sliding=true update(i)end end)catch.InputEnded:Connect(function(i)if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then sliding=false end end)UIS.InputChanged:Connect(function(i)if sliding and(i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseMovement)then update(i)end end)return frame end
+local function CreateDropdown(parent,text,options,default,callback)local frame=New("Frame",parent)frame.Size=UDim2.new(0,200,0,38)frame.BackgroundColor3=BG_BTN frame.BorderSizePixel=0 New("UICorner",frame).CornerRadius=UDim.new(0,9)local label=New("TextLabel",frame)label.Size=UDim2.new(1,-40,0,14)label.Position=UDim2.new(0,12,0,3)label.BackgroundTransparency=1 label.Text=text label.TextColor3=TEXT_DIM label.Font=Enum.Font.Gotham label.TextSize=9 label.TextXAlignment=Enum.TextXAlignment.Left local value=New("TextLabel",frame)value.Size=UDim2.new(1,-40,0,16)value.Position=UDim2.new(0,12,0,16)value.BackgroundTransparency=1 value.Text=default value.TextColor3=WHITE value.Font=Enum.Font.GothamBold value.TextSize=12 value.TextXAlignment=Enum.TextXAlignment.Left local arrow=New("TextLabel",frame)arrow.Size=UDim2.new(0,24,1,0)arrow.Position=UDim2.new(1,-28,0,0)arrow.BackgroundTransparency=1 arrow.Text="v"arrow.TextColor3=Color3.fromRGB(180,140,255)arrow.Font=Enum.Font.GothamBold arrow.TextSize=14 local btn=New("TextButton",frame)btn.Size=UDim2.new(1,0,1,0)btn.BackgroundTransparency=1 btn.Text=""local list=New("Frame",frame)list.Size=UDim2.new(1,0,0,#options*30+8)list.Position=UDim2.new(0,0,0,-#options*30-14)list.BackgroundColor3=Color3.fromRGB(28,22,40)list.BorderSizePixel=0 list.Visible=false list.ZIndex=50 New("UICorner",list).CornerRadius=UDim.new(0,9)local ll=New("UIListLayout",list)ll.Padding=UDim.new(0,2)ll.HorizontalAlignment=Enum.HorizontalAlignment.Center local lp=New("UIPadding",list)lp.PaddingTop=UDim.new(0,4)lp.PaddingBottom=UDim.new(0,4)local itemButtons={}local function setSelected(opt)value.Text=opt for _,ob in itemButtons do if ob.Text==opt then ob.BackgroundColor3=Color3.fromRGB(90,50,150)ob.TextColor3=Color3.fromRGB(220,180,255)else ob.BackgroundColor3=Color3.fromRGB(40,32,55)ob.TextColor3=Color3.fromRGB(200,190,220)end end callback(opt)end for i=1,#options do local opt=options[i]local ob=New("TextButton",list)ob.Size=UDim2.new(1,-8,0,28)ob.BackgroundColor3=opt==default and Color3.fromRGB(90,50,150)or Color3.fromRGB(40,32,55)ob.Text=opt ob.TextColor3=opt==default and Color3.fromRGB(220,180,255)or Color3.fromRGB(200,190,220)ob.Font=Enum.Font.GothamMedium ob.TextSize=11 ob.AutoButtonColor=false ob.ZIndex=51 New("UICorner",ob).CornerRadius=UDim.new(0,6)table.insert(itemButtons,ob)ob.MouseButton1Click:Connect(function()setSelected(opt)list.Visible=false end)end btn.MouseButton1Click:Connect(function()list.Visible=not list.Visible end)return frame end
+local TabButtons={}
+local TabPanels={}
+local ActiveTab=nil
+local function SwitchTab(index)if ActiveTab==index then return end ActiveTab=index for i,btn in TabButtons do local isActive=(i==index)Tween:Create(btn,TweenInfo.new(0.15),{BackgroundColor3=isActive and Color3.fromRGB(115,55,195)or Color3.fromRGB(35,30,45)}):Play()btn.TextColor3=isActive and WHITE or Color3.fromRGB(160,150,180)end for i,panel in TabPanels do panel.Visible=(i==index)end end
+local function CreateTab(name,icon,sections)local btn=New("TextButton",TabBar)btn.Size=UDim2.new(0,116,0,30)btn.BackgroundColor3=Color3.fromRGB(35,30,45)btn.Text=(icon or"").." "..name btn.TextColor3=Color3.fromRGB(160,150,180)btn.Font=Enum.Font.GothamBold btn.TextSize=11 btn.AutoButtonColor=false New("UICorner",btn).CornerRadius=UDim.new(0,8)local index=#TabButtons+1 TabButtons[index]=btn local panel=New("ScrollingFrame",contentScroll)panel.Size=UDim2.new(1,0,1,0)panel.BackgroundTransparency=1 panel.BorderSizePixel=0 panel.ScrollBarThickness=0 panel.ScrollingDirection=Enum.ScrollingDirection.Y panel.CanvasSize=UDim2.new(0,0,0,0)panel.AutomaticCanvasSize=Enum.AutomaticSize.Y panel.Visible=false local vLayout=New("UIListLayout",panel)vLayout.Padding=UDim.new(0,10)vLayout.HorizontalAlignment=Enum.HorizontalAlignment.Center TabPanels[index]=panel btn.MouseButton1Click:Connect(function()SwitchTab(index)end)for _,sectDef in sections do local card,body=CreateSection(sectDef.title,sectDef.icon)card.Parent=panel sectDef.build(body)end return index end
+CreateTab("エイム","A",{{title="エイム設定",icon="1",build=function(body)CreateToggle(body,"エイム",false,function(v)S.Aim=v end)CreateToggle(body,"可視チェック",true,function(v)S.VisCheck=v end)CreateToggle(body,"FOVサークル",false,function(v)S.FOVCircle=v end)CreateSlider(body,"滑らかさ",0.05,0.4,0.18,2,function(v)S.Smooth=v end,0.18)CreateSlider(body,"視野角",40,400,90,0,function(v)S.FOV=v end,90)CreateSlider(body,"最大距離",50,1500,500,0,function(v)S.MaxDist=v end,500)end},{title="サイレント",icon="2",build=function(body)CreateToggle(body,"サイレント",false,function(v)S.Silent=v end)CreateToggle(body,"Auto Shoot",false,function(v)S.AutoShoot=v end)CreateToggle(body,"即座スナップ",false,function(v)S.InstantSnap=v end)CreateDropdown(body,"方式",{"Hook","Mouse"},"Hook",function(v)S.SilentMode=v end)CreateDropdown(body,"平滑化",{"Linear","Exponential","Bezier"},"Linear",function(v)S.AimSmoothing=v end)CreateDropdown(body,"予測方式",{"Velocity","Acceleration","Gravity"},"Velocity",function(v)S.PredictionType=v end)CreateSlider(body,"追従速度",0.05,1,0.35,2,function(v)S.SilentSmooth=v end,0.35)CreateSlider(body,"発射遅延",0.02,0.5,0.08,2,function(v)S.AutoShootDelay=v end,0.08)end},{title="トリガー",icon="3",build=function(body)CreateToggle(body,"トリガーボット",false,function(v)S.Trig=v end)CreateToggle(body,"AI予測",true,function(v)S.AI=v end)CreateSlider(body,"遅延",0.05,0.5,0.12,2,function(v)S.TrigD=v end,0.12)CreateSlider(body,"予測",0.05,0.3,0.12,2,function(v)S.Pred=v end,0.12)end},{title="優先度",icon="4",build=function(body)CreateDropdown(body,"ターゲット優先",{"Distance","Health","Threat"},"Distance",function(v)S.AimPriority=v end)CreateToggle(body,"壁貫通",false,function(v)S.AimWallBang=v end)end}})
+CreateTab("ESP","B",{{title="表示",icon="1",build=function(body)CreateToggle(body,"骨格",true,function(v)S.Skel=v end)CreateToggle(body,"Box",false,function(v)S.ESPBox=v RefreshESP()end)CreateToggle(body,"軌跡",false,function(v)S.Trace=v end)CreateToggle(body,"透過表示",true,function(v)S.Chams=v end)CreateToggle(body,"情報",true,function(v)S.Info=v end)CreateToggle(body,"距離のみ",false,function(v)S.ESPDist=v end)end},{title="強化表示",icon="2",build=function(body)CreateToggle(body,"ヘルスバー",false,function(v)S.ESPHealthBar=v end)CreateToggle(body,"チームカラー",true,function(v)S.ESPTeamColor=v end)CreateToggle(body,"レインボー",false,function(v)S.ESPRainbow=v end)CreateToggle(body,"距離フェード",true,function(v)S.ESPDistanceFade=v end)CreateToggle(body,"ネームタグ強化",false,function(v)S.ESPNameTag=v end)CreateToggle(body,"HP数値表示",false,function(v)S.ESPHealthText=v end)CreateToggle(body,"脅威度表示",false,function(v)S.ESPThreatLevel=v end)end},{title="壁裏判定",icon="3",build=function(body)CreateDropdown(body,"モード",{"None","Visible Only","Hidden Only","Color Code"},"None",function(v)S.ESPWallCheck=v end)CreateToggle(body,"チーム除外",true,function(v)S.Team=v RefreshESP()end)end},{title="フィルター",icon="4",build=function(body)CreateToggle(body,"ヒットボックス",false,function(v)S.Hitbox=v RefreshHitboxes()end)CreateSlider(body,"HBサイズ",1.5,5,2,1,function(v)S.HBV=v RefreshHitboxes()end,2)end}})
+CreateTab("移動","C",{{title="速度ジャンプ",icon="1",build=function(body)CreateToggle(body,"速度",false,function(v)S.Spd=v ApplySpeed()end)CreateToggle(body,"ジャンプ",false,function(v)S.Jmp=v ApplyJump()end)CreateSlider(body,"速度値",16,120,28,0,function(v)S.SpdV=v if S.Spd then ApplySpeed()end end,16)CreateSlider(body,"跳力",50,200,80,0,function(v)S.JmpV=v if S.Jmp then ApplyJump()end end,50)end},{title="特殊移動",icon="2",build=function(body)CreateToggle(body,"飛行",false,function(v)ToggleFly(v)if FlyCtrl then FlyCtrl.Visible=v end end)CreateToggle(body,"壁抜け",false,function(v)ToggleNoclip(v)end)CreateToggle(body,"無限ジャンプ",false,function(v)ToggleInfJump(v)end)CreateSlider(body,"飛行速度",20,200,50,0,function(v)S.FlyV=v end,50)end}})
+CreateTab("保護","D",{{title="アンチBAN",icon="1",build=function(body)local setAll local function syncAll()local all=S.AB_Kick and S.AB_TP and S.AB_Char and S.AB_Remote and S.AB_Move if setAll then setAll(all,true)end end local _,sa=CreateToggle(body,"全保護",false,function(v)S.AB_Kick=v EnableKick(v)S.AB_TP=v EnableTP(v)S.AB_Char=v EnableChar(v)S.AB_Remote=v EnableRemote(v)S.AB_Move=v EnableMove(v)end)setAll=sa CreateToggle(body,"キック防止",false,function(v)S.AB_Kick=v EnableKick(v)syncAll()end)CreateToggle(body,"TP防止",false,function(v)EnableTP(v)syncAll()end)CreateToggle(body,"キャラ保護",false,function(v)EnableChar(v)syncAll()end)CreateToggle(body,"リモート保護",false,function(v)EnableRemote(v)end)CreateToggle(body,"移動検知対策",false,function(v)EnableMove(v)end)CreateToggle(body,"アンチチート無効化",true,function(v)S.AntiAC=v end)end},{title="応用",icon="2",build=function(body)CreateToggle(body,"アンチフリング",false,function(v)ToggleAntiFling(v)end)CreateToggle(body,"ヒット通知",false,function(v)S.HitNotify=v end)CreateToggle(body,"キルフラッシュ除去",false,function(v)S.NoKillFlash=v end)end}})
+CreateTab("視覚","E",{{title="視覚効果",icon="1",build=function(body)CreateToggle(body,"フルブライト",false,function(v)ToggleFB(v)end)CreateToggle(body,"軽量化",false,function(v)ToggleLight(v)end)end},{title="パフォーマンス",icon="2",build=function(body)CreateSlider(body,"描画間隔",1,4,1,0,function(v)S.RenderThrottle=v end,1)end}})
+CreateTab("HUD","F",{{title="HUD設定",icon="1",build=function(body)CreateToggle(body,"プレイヤーHUD",false,function(v)S.PlayerHUD=v if not v and PlayerHUD then PlayerHUD.Visible=false end end)CreateToggle(body,"最寄り表示",false,function(v)S.NearestPlayerHUD=v end)CreateToggle(body,"ターゲットリング",false,function(v)S.TargetIndicator=v if not v and TargetIndicator then TargetIndicator.Visible=false end end)CreateToggle(body,"ターゲット追跡線",false,function(v)S.TracerToTarget=v end)end}})
+SwitchTab(1)
+LP.CharacterAdded:Connect(function()task.wait(0.5)SetupHitDetection()end)
+Players.PlayerAdded:Connect(function()task.wait(1)SetupHitDetection()end)
+getgenv().KataoyaEnhanced={Whitelist={Add=function(n)S.Whitelist[n]=true end,Remove=function(n)S.Whitelist[n]=nil end,Clear=function()S.Whitelist={}end,List=function()return S.Whitelist end},SetPrediction=function(t)S.PredictionType=t end,SetSmoothing=function(s)S.AimSmoothing=s end}
+local function SetupPlayer(p)if p==LP then return end local pn=p.Name local function onChar(ch)ClearPlayer(pn)RestoreHitbox(pn)task.wait(1)if ch and ch.Parent and ch:FindFirstChild("HumanoidRootPart")then MakeESP(p)ApplyHitbox(p)end end if p.Character then onChar(p.Character)end p.CharacterAdded:Connect(onChar)p.CharacterRemoving:Connect(function()ClearPlayer(pn)RestoreHitbox(pn)end)end
+for _,p in GP(Players)do SetupPlayer(p)end
+Players.PlayerAdded:Connect(SetupPlayer)
+Players.PlayerRemoving:Connect(function(p)ClearPlayer(p.Name)RestoreHitbox(p.Name)end)
+task.spawn(function()while task.wait(0.8)do for name,d in Data do if not d.C or not d.C.Parent then ClearPlayer(name)end end if S.Spd then local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")if h and h.WalkSpeed~=S.SpdV then h.WalkSpeed=S.SpdV end end end end)
+Notify("Kataoya v7.0","読み込み完了",3)
